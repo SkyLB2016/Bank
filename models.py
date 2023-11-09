@@ -6,9 +6,42 @@ class UserModel(db.Model):
     __tablename__ = "user"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(11), nullable=False)
-    password = db.Column(db.String(200), nullable=False,)
+    phone = db.Column(db.String(11), nullable=False, unique=True)
+    password = db.Column(db.String(200), nullable=False, )
     join_time = db.Column(db.DateTime, default=datetime.now)
+
+
+class TokenModel(db.Model):
+    __tablename__ = "token"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    token = db.Column(db.String(200), nullable=False)
+    join_time = db.Column(db.DateTime, default=datetime.now)
+    # 外键
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+
+    # user = db.relationship(UserModel, backref="records")
+
+
+class RecordModel(db.Model):
+    __tablename__ = "record"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    path = db.Column(db.String(200), nullable=False)
+    join_time = db.Column(db.DateTime, default=datetime.now)
+    check_method = db.Column(db.String(40), default=False)
+    check_count = db.Column(db.Integer, default=False)
+
+    # 外键
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+
+    # user = db.relationship(UserModel, backref="records")
+
+    def json(self):
+        return {
+            "path": self.path,
+            "joinTime": int(self.join_time.timestamp() * 1000),
+            "checkMethod": self.check_method,
+            "checkCount": self.check_count
+        }
 
 
 class BankModel(db.Model):
@@ -71,6 +104,14 @@ class CLanAllModel(object):
         self.code = code
         self.message = message
         self.data = data
+
+    def json_to_class(self, json):
+        return CLanAllModel(
+            json['chargeStatus'],
+            json['code'],
+            json['message'],
+            json['data']
+        )
 
 
 class CLanModel(object):

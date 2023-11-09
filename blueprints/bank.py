@@ -10,7 +10,8 @@ from flask import Blueprint, jsonify, request, send_file, send_from_directory
 
 from blueprints.ali import ali_bankcard_query
 from blueprints.clan import card_two_auth, card_three_auth
-from models import BankModel
+from exts import db
+from models import BankModel, RecordModel, UserModel, TokenModel
 
 bp = Blueprint("bank", __name__, url_prefix="/bank")
 SUCCESS = 200
@@ -19,21 +20,22 @@ INIT_ERROR = '06'
 date = datetime.date(datetime.now())
 path_root = f"file/upload/{date}/"
 
-json_clan_test = {
-    'chargeStatus': 1,
-    'message': '成功',
-    'data': {
-        'orderNo': '011698896659123283',
-        'handleTime': '2023-11-02 11:44:19',
-        'result': '01',
-        'remark': '认证一致',
-        'bankName': '中国工商银行',
-        'cardType': 'E时代卡',
-        'cardCategory': '借记卡'
-    },
-    'code': '200000'
-}
 
+# json_clan_test = {
+#     'chargeStatus': 1,
+#     'message': '成功',
+#     'data': {
+#         'orderNo': '011698896659123283',
+#         'handleTime': '2023-11-02 11:44:19',
+#         'result': '01',
+#         'remark': '认证一致',
+#         'bankName': '中国工商银行',
+#         'cardType': 'E时代卡',
+#         'cardCategory': '借记卡'
+#     },
+#     'code': '200000'
+# }
+#
 
 #
 # json_ali = {
@@ -70,47 +72,72 @@ def down_success():
 @bp.route('/template', methods=['POST'])
 def down_file():
     type_mode = request.args.get("type", default=1, type=int)
-    print(f"type_mode=={type_mode}")
-    # filepath = ''
-    if type_mode == 1:
-        filepath = 'file/down/type1.xlsx'
-    elif type_mode == 2:
+    filepath = 'file/down/type1.xlsx'
+    if type_mode == 2:
         filepath = 'file/down/type2.xlsx'
     elif type_mode == 3:
         filepath = 'file/down/type3.xlsx'
     elif type_mode == 4:
         filepath = 'file/down/type4.xlsx'
-    else:
+    elif type_mode == 5:
         filepath = 'file/down/type5.xlsx'
-    print(f"filepath=={filepath}")
     return send_file(filepath, as_attachment=True)  # 返回保存的文件
 
 
-@bp.route('/template1')
-def down_file1():
-    type_mode = request.args.get("type", default=1, type=int)
-    # filepath = ''
-    if type_mode == 1:
-        filepath = 'file/down/type1.xlsx'
-    elif type_mode == 2:
-        filepath = 'file/down/type2.xlsx'
-    elif type_mode == 3:
-        filepath = 'file/down/type3.xlsx'
-    elif type_mode == 4:
-        filepath = 'file/down/type4.xlsx'
-    else:
-        filepath = 'file/down/type5.xlsx'
-    # return send_file(filepath, as_attachment=True)  # 返回保存的文件
-    # return "返回保存的文件"
-    path_os = os.path.join(os.getcwd(), filepath)
-    return send_from_directory(path=path_os, directory=os.getcwd(), filename='type5.xlsx', as_attachment=True)
+@bp.route("/record/list")
+def record_list():
+    # token = request.headers.get('Authorization')
+    # print(f"token=={token}")
+    # 验证token
+    token = request.cookies.get('Authorization')
+    print(f"token=={token}")
+    if is_empty(token):
+        return jsonify({"status": FAIL, "message": "尚未登录"})
+    # 同一个变量名字，这里就是指向对象了
+    token = TokenModel.query.filter_by(token=token).first()
+    if not token:
+        return jsonify({"status": FAIL, "message": "尚未登录"})
+    # 根据token 获取用户id，验证用户
+    user_id = token.user_id
+    user = UserModel.query.get(user_id)
+    if not user:
+        return jsonify({"status": FAIL, "message": "用户不存在"})
+
+    page = request.args.get("page", default=1, type=int)
+    pageSize = request.args.get("pageSize", default=10, type=int)
+
+    record_sql = RecordModel.query.filter_by(user_id=user_id)
+    total = record_sql.count()
+    print(f"总共有=={total}")
+    offset = (page - 1) * pageSize
+    record_list = record_sql.offset(offset).all()
+    dataList = []
+    for record in record_list:
+        temp = record.json()
+        temp["userName"] = user.username
+        dataList.append(temp)
+    print(str(dataList))
+
+    return jsonify({"status": SUCCESS, "message": "成功", "data": dataList, "total": total})
 
 
 @bp.route("/card/query", methods=['POST'])
 def card_query():
     type_mode = request.args.get("type", default=1, type=int)
-    file = request.files['file']
+    token = request.cookies.get('Authorization')
+    print(f"token=={token}")
+    if is_empty(token):
+        return jsonify({"status": FAIL, "message": "尚未登录"})
+    token = TokenModel.query.filter_by(token=token).first()
+    if not token:
+        return jsonify({"status": FAIL, "message": "用户不存在"})
 
+    user_id = token.user_id
+    user = UserModel.query.get(user_id)
+    if not user:
+        return jsonify({"status": FAIL, "message": "用户不存在"})
+
+    file = request.files['file']
     suffix = file.filename.split('.')[1]  # 获取文件的后缀，防止有修改
     if not (suffix == 'xlsx' or suffix == "xls"):
         return jsonify({"status": FAIL, "message": "文件格式不正确", "data": None})
@@ -147,7 +174,8 @@ def card_query():
 
     # 4.2构建成功信息 xlsx
     path_success = ""
-    if len(bank_success) > 0:
+    length_success = len(bank_success)
+    if length_success > 0:
         xlsx_success = []
         # 获取 xlsx 文件所需要的数据
         if type_mode == 1:
@@ -162,6 +190,32 @@ def card_query():
             xlsx_success = create_file_05(bank_success)
         # 开始构建生成 xlsx 文件
         path_success = create_file(xlsx_success)
+
+    check_method = "姓名 + 银行卡号 + 银行类型"
+    if type_mode == 2:
+        check_method = "姓名 + 身份证号 + 银行卡号 + 银行类型"
+    elif type_mode == 3:
+        check_method = "获取银行卡号归属地 + 银行类型"
+    elif type_mode == 4:
+        check_method = "姓名 + 银行卡号 + 获取归属地 + 银行类型"
+    elif type_mode == 5:
+        check_method = "姓名 + 身份证号 + 银行卡号 + 获取归属地 + 银行类型"
+    print(f"{int(time.time() * 1000)}")
+    print(f"path_success=={path_success}")
+
+    record = RecordModel(path=path_success,
+                         # join_time=int(time.time() * 1000),
+                         # join_time=datetime.now,
+                         check_method=check_method,
+                         check_count=length_success,
+                         user_id=user_id, )
+    db.session.add(record)
+    try:
+        db.session.commit()
+    except SyntaxError:
+        print("添加记录失败")
+    finally:
+        "失败"
 
     return jsonify({"status": SUCCESS,
                     "message": "成功",

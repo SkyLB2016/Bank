@@ -1,3 +1,4 @@
 /migrations
 /file/upload
 .idea
+__pycache__
