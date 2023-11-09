@@ -18,9 +18,15 @@ SUCCESS = 200
 FAIL = 400
 INIT_ERROR = '06'
 date = datetime.date(datetime.now())
+# os.mkdir(path_root)  只能生成一级文件目录，多级生成会报错
+# 上传文件保存的路径
 path_root = f"file/upload/{date}/"
+# 生成的错误文件保存的路径
+path_root_error = f"file/error/{date}/"
+# 生成的成功文件保存的路径
+path_root_result = f"file/result/{date}/"
 
-
+'file/result/2023-11-09/result_1699514433115.xlsx'
 # json_clan_test = {
 #     'chargeStatus': 1,
 #     'message': '成功',
@@ -169,8 +175,12 @@ def card_query():
             xlsx_error = create_file_error_03(bank_error)
         else:
             xlsx_error = create_file_error_01(bank_error)
+
         # 开始构建 错误信息xlsx
-        path_error = create_file(xlsx_error)
+        # 检查文件夹是否存在
+        if not os.path.exists(path_root_error): os.mkdir(path_root_error)
+        path = f"{path_root_error}error_{int(time.time() * 1000)}.xlsx"
+        path_error = create_file(xlsx_error, path)
 
     # 4.2构建成功信息 xlsx
     length_success = len(bank_success)
@@ -198,7 +208,9 @@ def card_query():
         xlsx_success = create_file_05(bank_success)
 
     # 开始构建生成 xlsx 文件
-    path_success = create_file(xlsx_success)
+    if not os.path.exists(path_root_result): os.mkdir(path_root_result)
+    path = f"{path_root_result}result_{int(time.time() * 1000)}.xlsx"
+    path_success = create_file(xlsx_success, path)
 
     check_method = "姓名 + 银行卡号 + 银行类型"
     if type_mode == 2:
@@ -209,8 +221,8 @@ def card_query():
         check_method = "姓名 + 银行卡号 + 获取归属地 + 银行类型"
     elif type_mode == 5:
         check_method = "姓名 + 身份证号 + 银行卡号 + 获取归属地 + 银行类型"
-    print(f"{int(time.time() * 1000)}")
-    print(f"path_success=={path_success}")
+    # print(f"{int(time.time() * 1000)}")
+    # print(f"path_success=={path_success}")
 
     record = RecordModel(path=path_success,
                          # join_time=int(time.time() * 1000),
@@ -238,18 +250,17 @@ def card_query():
 
 
 def get_bank_data(file, type_mode):
-    # print(f"名字=={file.name}")
-    # print(f"名字=={file.filename}")
-    names = file.filename.split('.')
-    name = names[0]  # 文件名称
-    suffix = names[1]  # 获取文件的后缀，防止有修改
+    # names = file.filename.split('.')
+    # name = names[0]  # 文件名称
+    # suffix = names[1]  # 获取文件的后缀，防止有修改
     # print(f"后缀类型=={suffix}")
-    filename = f"bank_{name}_{int(time.time() / 1000)}"
+    # filename = f"bank_{name}_{int(time.time() / 1000)}"
+
     # 检查文件夹是否存在
     if not os.path.exists(path_root):
         os.mkdir(path_root)
 
-    path = f'{path_root}{filename}.{suffix}'
+    path = f'{path_root}{file.filename}'
     file.save(path)  # 将接收到的文件保存到本地
     # print(f"名字=={path}")
 
@@ -434,8 +445,8 @@ def bank_card_query(bank, type_mode):
         # 银行卡号，所属银行，开户行所在省，开户行所在市，银行卡类型，银行卡类别
         json_ali = ali_bankcard_query(bank.bank_card)
 
-    print(f"请求的数据clan=={json_clan}")
-    print(f"请求的数据ali=={json_ali}")
+    # print(f"请求的数据clan=={json_clan}")
+    # print(f"请求的数据ali=={json_ali}")
 
     if json_clan:
         if json_clan['code'] == '200000':
@@ -451,7 +462,7 @@ def bank_card_query(bank, type_mode):
         else:
             bank.bank_error = json_ali['reason']
 
-    print(f"合成的数据bank=={bank.json()}")
+    # print(f"合成的数据bank=={bank.json()}")
     return bank
 
 
@@ -483,7 +494,7 @@ def handle_ali_data(ali, bank):
     bank.join_time = f"{int(datetime.now().timestamp() * 1000)}"
 
 
-def create_file(data_result):
+def create_file(data_result, path):
     # data = [
     #     ["姓名", "银行卡号"],
     #     ["李彬", "6222020302059210872"],
@@ -492,10 +503,6 @@ def create_file(data_result):
     #     ["李林", "6217850200007539878"]
     # ]
     # print(f"data_result=={data_result}")
-    # 检查文件夹是否存在
-    if not os.path.exists(path_root): os.mkdir(path_root)
-
-    path = f"{path_root}data_result_{int(time.time() * 1000)}.xlsx"
     workbook = xlsxwriter.Workbook(path)
     worksheet = workbook.add_worksheet()
     # worksheet.set_column()
