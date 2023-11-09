@@ -173,23 +173,32 @@ def card_query():
         path_error = create_file(xlsx_error)
 
     # 4.2构建成功信息 xlsx
-    path_success = ""
     length_success = len(bank_success)
-    if length_success > 0:
-        xlsx_success = []
-        # 获取 xlsx 文件所需要的数据
-        if type_mode == 1:
-            xlsx_success = create_file_01(bank_success)
-        elif type_mode == 2:
-            xlsx_success = create_file_02(bank_success)
-        elif type_mode == 3:
-            xlsx_success = create_file_03(bank_success)
-        elif type_mode == 4:
-            xlsx_success = create_file_04(bank_success)
-        elif type_mode == 5:
-            xlsx_success = create_file_05(bank_success)
-        # 开始构建生成 xlsx 文件
-        path_success = create_file(xlsx_success)
+    if length_success == 0:
+        return jsonify({
+            "status": SUCCESS,
+            "message": "成功",
+            "successCount": length_success,
+            "successPath": "",
+            "errorCount": len(bank_error),
+            "errorPath": path_error
+        })
+
+    xlsx_success = []
+    # 获取 xlsx 文件所需要的数据
+    if type_mode == 1:
+        xlsx_success = create_file_01(bank_success)
+    elif type_mode == 2:
+        xlsx_success = create_file_02(bank_success)
+    elif type_mode == 3:
+        xlsx_success = create_file_03(bank_success)
+    elif type_mode == 4:
+        xlsx_success = create_file_04(bank_success)
+    elif type_mode == 5:
+        xlsx_success = create_file_05(bank_success)
+
+    # 开始构建生成 xlsx 文件
+    path_success = create_file(xlsx_success)
 
     check_method = "姓名 + 银行卡号 + 银行类型"
     if type_mode == 2:
@@ -219,7 +228,7 @@ def card_query():
 
     return jsonify({"status": SUCCESS,
                     "message": "成功",
-                    "successCount": len(bank_success),
+                    "successCount": length_success,
                     "successPath": path_success,
                     "errorCount": len(bank_error),
                     "errorPath": path_error
