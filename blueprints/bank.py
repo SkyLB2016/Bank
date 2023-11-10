@@ -26,7 +26,7 @@ path_root_error = f"file/error/{date}/"
 # 生成的成功文件保存的路径
 path_root_result = f"file/result/{date}/"
 
-'file/result/2023-11-09/result_1699514433115.xlsx'
+
 # json_clan_test = {
 #     'chargeStatus': 1,
 #     'message': '成功',
@@ -77,6 +77,12 @@ def down_success():
 
 @bp.route('/template', methods=['POST'])
 def down_file():
+    # 验证token
+    # token = request.cookies.get('Authorization')
+    # print(f"token=={token}")
+    token = request.headers.get('Authorization')
+    print(f"token=={token}")
+
     type_mode = request.args.get("type", default=1, type=int)
     filepath = 'file/down/type1.xlsx'
     if type_mode == 2:
@@ -92,11 +98,13 @@ def down_file():
 
 @bp.route("/record/list")
 def record_list():
-    # token = request.headers.get('Authorization')
-    # print(f"token=={token}")
     # 验证token
-    token = request.cookies.get('Authorization')
+    # headers 里的token
+    token = request.headers.get('Authorization')
     print(f"token=={token}")
+    # cookies 里的 token
+    # token = request.cookies.get('Authorization')
+    # print(f"token=={token}")
     if is_empty(token):
         return jsonify({"status": FAIL, "message": "尚未登录"})
     # 同一个变量名字，这里就是指向对象了
@@ -110,27 +118,31 @@ def record_list():
         return jsonify({"status": FAIL, "message": "用户不存在"})
 
     page = request.args.get("page", default=1, type=int)
-    pageSize = request.args.get("pageSize", default=10, type=int)
+    page_size = request.args.get("pageSize", default=10, type=int)
 
+    # 开始查询数据
     record_sql = RecordModel.query.filter_by(user_id=user_id)
+    # 数据总共有多少条
     total = record_sql.count()
     print(f"总共有=={total}")
-    offset = (page - 1) * pageSize
-    record_list = record_sql.offset(offset).all()
-    dataList = []
-    for record in record_list:
+    # 数据当前的偏移量
+    offset = (page - 1) * page_size
+    # 根据偏移量获取数据
+    records = record_sql.offset(offset).limit(page_size)
+    data_result = []
+    for record in records:
         temp = record.json()
         temp["userName"] = user.username
-        dataList.append(temp)
-    print(str(dataList))
+        data_result.append(temp)
+    print(str(data_result))
 
-    return jsonify({"status": SUCCESS, "message": "成功", "data": dataList, "total": total})
+    return jsonify({"status": SUCCESS, "message": "成功", "data": data_result, "total": total})
 
 
 @bp.route("/card/query", methods=['POST'])
 def card_query():
     type_mode = request.args.get("type", default=1, type=int)
-    token = request.cookies.get('Authorization')
+    token = request.headers.get('Authorization')
     print(f"token=={token}")
     if is_empty(token):
         return jsonify({"status": FAIL, "message": "尚未登录"})
@@ -229,7 +241,7 @@ def card_query():
                          # join_time=datetime.now,
                          check_method=check_method,
                          check_count=length_success,
-                         user_id=user_id, )
+                         user_id=user_id)
     db.session.add(record)
     try:
         db.session.commit()

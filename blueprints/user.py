@@ -4,6 +4,8 @@ import re
 from flask import Blueprint, request, jsonify, session
 import json
 
+from sqlalchemy.exc import IntegrityError
+
 from exts import db
 from models import UserModel, TokenModel
 
@@ -30,22 +32,23 @@ def login():
     if not password == user.password:
         return jsonify({"status": FAIL, "message": "密码错误"})
     # session['user_id'] = user.id
+    # 生成32位的随机数
     token = generate_random_string(32)
-    token_model = TokenModel(token=token, user_id=user.id)
-
-    check_token = TokenModel.query.filter_by(user_id=user.id).first()
-    if check_token:
-        check_token.token = token
+    token_model = TokenModel.query.filter_by(user_id=user.id).first()
+    if token_model:
+        token_model.token = token
     else:
+        token_model = TokenModel(token=token, user_id=user.id)
         db.session.add(token_model)
+
     try:
         db.session.commit()
     except SyntaxError:
         return jsonify({"status": SUCCESS, "message": "登录失败", "token": None})
-    finally:
-        "已注册"
+    # finally:
+    #     "已注册"
 
-    return jsonify({"status": SUCCESS, "message": "成功", "token": token})
+    return jsonify({"status": SUCCESS, "message": "成功", "token": token, "userName": user.username})
 
 
 def generate_random_string(length):
@@ -68,16 +71,28 @@ def validate_phone_number(phone_number):
 
 @bp.route('/register')
 def register():
-    user = UserModel(username="甲乙", phone="13703288210", password="123456")
+    # phone = "13703288210"
+    # password = "123456"
+    username = "甲乙"
+    phone = "18531022252"
+    password = "123456"
+    user = UserModel.query.filter_by(phone=phone).first()
+    if user:
+        return jsonify({"status": FAIL, "message": "已注册", "token": None})
+
+    user = UserModel(username=username, phone=phone, password=password)
     # password = generate_password_hash("123456"))
+
     db.session.add(user)
     try:
         db.session.commit()
+    except  IntegrityError:
+        return jsonify({"status": FAIL, "message": "已注册", "token": None})
     except SyntaxError:
-        return "已注册"
-    finally:
-        "已注册"
+        return jsonify({"status": FAIL, "message": "已注册", "token": None})
     # else:
     #      "已注册"
+    finally:
+        "已注册"
 
     return "成功"

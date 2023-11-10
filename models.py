@@ -38,7 +38,8 @@ class RecordModel(db.Model):
     def json(self):
         return {
             "path": self.path,
-            "joinTime": int(self.join_time.timestamp() * 1000),
+            # "joinTime": int(self.join_time.timestamp() * 1000),
+            "joinTime": self.join_time,
             "checkMethod": self.check_method,
             "checkCount": self.check_count
         }
