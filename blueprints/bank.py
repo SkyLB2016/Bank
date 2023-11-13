@@ -122,6 +122,8 @@ def record_list():
 
     # 开始查询数据
     record_sql = RecordModel.query.filter_by(user_id=user_id)
+    # record_sql = RecordModel.query.filter_by(user_id=user_id).order_by(RecordModel.join_time)#默认排序，从小到大
+    # record_sql = RecordModel.query.filter_by(user_id=user_id).order_by(RecordModel.join_time.desc())#降序排序，从大到小
     # 数据总共有多少条
     total = record_sql.count()
     print(f"总共有=={total}")
@@ -155,6 +157,32 @@ def card_query():
     if not user:
         return jsonify({"status": FAIL, "message": "用户不存在"})
 
+    check_method = "姓名 + 银行卡号 + 银行类型"
+    if type_mode == 2:
+        check_method = "姓名 + 身份证号 + 银行卡号 + 银行类型"
+    elif type_mode == 3:
+        check_method = "获取银行卡号归属地 + 银行类型"
+    elif type_mode == 4:
+        check_method = "姓名 + 银行卡号 + 获取归属地 + 银行类型"
+    elif type_mode == 5:
+        check_method = "姓名 + 身份证号 + 银行卡号 + 获取归属地 + 银行类型"
+    # print(f"{int(time.time() * 1000)}")
+    # print(f"path_success=={path_success}")
+
+    # 先插入记录，状态为： 校验中
+    record = RecordModel(  # join_time=int(time.time() * 1000),
+        # join_time=datetime.now,
+        check_method=check_method,
+        status="校验中",
+        user_id=user_id)
+    db.session.add(record)
+    try:
+        db.session.commit()
+    except SyntaxError:
+        print("添加记录失败")
+    finally:
+        "失败"
+    # 开始校验数据，
     file = request.files['file']
     suffix = file.filename.split('.')[1]  # 获取文件的后缀，防止有修改
     if not (suffix == 'xlsx' or suffix == "xls"):
@@ -197,6 +225,8 @@ def card_query():
     # 4.2构建成功信息 xlsx
     length_success = len(bank_success)
     if length_success == 0:
+        db.session.delete(record)
+        db.session.commit()
         return jsonify({
             "status": SUCCESS,
             "message": "成功",
@@ -220,33 +250,18 @@ def card_query():
         xlsx_success = create_file_05(bank_success)
 
     # 开始构建生成 xlsx 文件
-    if not os.path.exists(path_root_result): os.mkdir(path_root_result)
+    if not os.path.exists(path_root_result):
+        os.mkdir(path_root_result)
     path = f"{path_root_result}result_{int(time.time() * 1000)}.xlsx"
     path_success = create_file(xlsx_success, path)
 
-    check_method = "姓名 + 银行卡号 + 银行类型"
-    if type_mode == 2:
-        check_method = "姓名 + 身份证号 + 银行卡号 + 银行类型"
-    elif type_mode == 3:
-        check_method = "获取银行卡号归属地 + 银行类型"
-    elif type_mode == 4:
-        check_method = "姓名 + 银行卡号 + 获取归属地 + 银行类型"
-    elif type_mode == 5:
-        check_method = "姓名 + 身份证号 + 银行卡号 + 获取归属地 + 银行类型"
-    # print(f"{int(time.time() * 1000)}")
-    # print(f"path_success=={path_success}")
-
-    record = RecordModel(path=path_success,
-                         # join_time=int(time.time() * 1000),
-                         # join_time=datetime.now,
-                         check_method=check_method,
-                         check_count=length_success,
-                         user_id=user_id)
-    db.session.add(record)
+    record.path = path_success
+    record.check_count = length_success
+    record.status = "校验完成"
     try:
-        db.session.commit()
+        db.session.commit()  # 更新数据
     except SyntaxError:
-        print("添加记录失败")
+        print("更新记录失败")
     finally:
         "失败"
 

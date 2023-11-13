@@ -25,10 +25,12 @@ class TokenModel(db.Model):
 class RecordModel(db.Model):
     __tablename__ = "record"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    path = db.Column(db.String(200), nullable=False)
+    path = db.Column(db.String(200), nullable=True)
     join_time = db.Column(db.DateTime, default=datetime.now)
-    check_method = db.Column(db.String(40), default=False)
-    check_count = db.Column(db.Integer, default=False)
+    check_method = db.Column(db.String(40), nullable=False)
+    check_count = db.Column(db.Integer, nullable=True)
+    # status = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), nullable=False)
 
     # 外键
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -41,7 +43,8 @@ class RecordModel(db.Model):
             # "joinTime": int(self.join_time.timestamp() * 1000),
             "joinTime": self.join_time,
             "checkMethod": self.check_method,
-            "checkCount": self.check_count
+            "checkCount": self.check_count,
+            "status": self.status
         }
 
 
